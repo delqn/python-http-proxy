@@ -101,29 +101,33 @@ class Respondent(threading.Thread):
                         self.respond(headers, response)
                 return
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+def statr_server():
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-'''
-        self.rfile = self.connection.makefile('rb', self.rbufsize)
-        self.wfile = self.connection.makefile('wb', self.wbufsize)
-'''
-f = open('easylist.txt')
-f.next()
-for line in f:
-	if line[0] == '!':
-		continue
-	ads.append(line.strip())
+        '''
+                self.rfile = self.connection.makefile('rb', self.rbufsize)
+                self.wfile = self.connection.makefile('wb', self.wbufsize)
+        '''
+        f = open('easylist.txt')
+        f.next()
+        for line in f:
+                if line[0] == '!':
+                        continue
+                ads.append(line.strip())
 
-try:
-        s.bind((HOST, PORT))
-except socket.error, e:
-        print("Error: %s" % e)
-        sys.exit(1)
-s.listen(5)
+        try:
+                s.bind((HOST, PORT))
+        except socket.error, e:
+                print("Error: %s" % e)
+                sys.exit(1)
+        s.listen(5)
 
-#launch unlimited threads...
-while 1:
-	conn, addr = s.accept()
-	Respondent(conn, addr).start()
+        #launch unlimited threads...
+        while 1:
+                conn, addr = s.accept()
+                Respondent(conn, addr).start()
+
+if __name__=='__main__':
+	start_server()
