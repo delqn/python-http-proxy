@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 import httplib2
 import logging
@@ -39,10 +39,10 @@ class Respondent(threading.Thread):
 		if 'content-length' in headers:
 			hdrs += "Content-Length: %s\r\n" % headers['content-length']
 		try:
-			self.conn.sendall(hdrs + '\r\n' + response + '\r\n')
-		except(Exception, e):
+			self.conn.sendall(bytes(hdrs + '\r\n' + response + '\r\n'))
+		except Exception:# as (errno, strerror):
 			print("-----------------------------------")
-			print("[Error] responding to the client: %s" % e)
+			print("[Error] responding to the client")# % strerror)
 			print(hdrs)
 			print(len(response))
 			print("The URL: %s" % url)
@@ -59,7 +59,7 @@ class Respondent(threading.Thread):
 					response = '401'
 					return (headers,response)
 			headers, response = h.request(url)
-		except(httplib2.RelativeURIError, e):
+		except httplib2.RelativeURIError:# as (errno, strerror):
 			headers = {'via': '1.0', 'status':'200', 'content-type':'text/html'}
 			response = '501 Internal Server Error (Proxy)'
 		return (headers,response)
@@ -72,7 +72,7 @@ class Respondent(threading.Thread):
 		while not found_line:
 			data = self.conn.recv(BUFFER_SIZE)
 			if not data: break
-			buff += data
+			buff += str(data)
 			if LINE_TERMINATOR in buff:
 				found_line = True
 				split_buff = buff.split(LINE_TERMINATOR, 1)
@@ -94,7 +94,7 @@ class Respondent(threading.Thread):
 			logger.info('Request: %s', url, extra=d)
 			h,r = self.make_request(url)
 			self.respond(h, r, url)
-		except(ValueError, e):
+		except ValueError:# as (errno, strerror):
 			headers = "400 Bad Request"
 			response = "Your request is jacked up!\n"
 			self.respond(headers, response)
@@ -118,8 +118,9 @@ def start_server():
 
 	try:
 		s.bind((HOST, PORT))
-	except(socket.error, e):
-		print("Error: %s" % e)
+	except socket.error:# as (errno, strerror):
+		##print("Error: %s" % strerror)
+		print("Error")
 		sys.exit(1)
 	s.listen(5)
 
