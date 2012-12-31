@@ -23,7 +23,7 @@ def signal_handler(signal, frame):
 	print("Bye!")
 	sys.exit(0)
 
-signal.signal(signal.SIGINT, signal_handler)
+#signal.signal(signal.SIGINT, signal_handler)
 
 class Respondent(threading.Thread):
 	def __init__(self, conn, addr):
@@ -72,7 +72,7 @@ class Respondent(threading.Thread):
 		while not found_line:
 			data = self.conn.recv(BUFFER_SIZE)
 			if not data: break
-			buff += str(data)
+			buff += data.decode("utf-8")
 			if LINE_TERMINATOR in buff:
 				found_line = True
 				split_buff = buff.split(LINE_TERMINATOR, 1)
@@ -87,10 +87,10 @@ class Respondent(threading.Thread):
 			return
 		try:
 			verb, url, protocol = line.split(' ')
-			if not re.match(r'^http|https://', url):
-				url = 'http://' + url
+			if not re.match(r'^(http|https)://', url):
+				url = "http://" + url
 
-			d = {'clientip': addr, 'user': 'not_implemented'}
+			d = {'clientip': self.addr, 'user': 'not_implemented'}
 			logger.info('Request: %s', url, extra=d)
 			h,r = self.make_request(url)
 			self.respond(h, r, url)
@@ -120,9 +120,9 @@ def start_server():
 		s.bind((HOST, PORT))
 	except socket.error:# as (errno, strerror):
 		##print("Error: %s" % strerror)
-		print("Error")
+		print("Could not bind to %s:%s"%(HOST,PORT))
 		sys.exit(1)
-	s.listen(5)
+	s.listen(1)
 
 	#launch unlimited threads...
 	while 1:
