@@ -101,7 +101,7 @@ class Respondent(threading.Thread):
                         self.respond(headers, response)
                 return
 
-def statr_server():
+def start_server():
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
