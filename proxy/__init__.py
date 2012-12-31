@@ -8,6 +8,8 @@ import sys
 import threading
 import urllib2
 
+from cookielib import CookieJar
+
 HOST = ''                 # Symbolic name meaning all available interfaces
 PORT = 65500              # Arbitrary non-privileged port
 BUFFER_SIZE = 1024
@@ -33,16 +35,8 @@ class Respondent(threading.Thread):
 
 	def respond(self, headers, response, url=''):
 		'''send a response to the server and terminate'''
-		'''
-{'status': '200', 'x-ysws-request-id': '5caff6d4-b329-4434-ab7b-14d39e36f6ae', 'via': 'HTTP/1.1 web18.usw105.mobstor.gq1.yahoo.com YahooTrafficServer/3.0.1 (UFF), http/1.0 l8.ycs.sjb.yahoo.com (ApacheTrafficServer/3.2.0)', 'content-location': u'http://l.yimg.com/dh/ap/default/121226/vs-wk.jpg', 'accept-ranges': 'bytes', 'expires': 'Sat, 05 Sep 2026 00:00:00 GMT', 'content-length': '6492', 'server': 'ATS/3.2.0', 'last-modified': 'Wed, 26 Dec 2012 23:40:34 GMT', 'connection': 'keep-alive', 'x-ysws-visited-replicas': 'gops.usw105.mobstor.vip.gq1.yahoo.com', 'etag': '"YM:1:db935279-8ac6-4c21-ba6b-ff71ed4f73ce0004d1c9f4f0b07d"', 'cache-control': 'max-age=31536000,public', 'date': 'Wed, 26 Dec 2012 23:41:38 GMT', 'content-type': 'image/jpeg', 'age': '382039'}
-		'''
-		hdrs = 'HTTP/1.1 200 OK\r\n'
-		if 'content-type' in headers:
-			hdrs += "Content-Type: %s\r\n" % headers['content-type']
-		if 'content-length' in headers:
-			hdrs += "Content-Length: %s\r\n" % headers['content-length']
 		try:
-			self.conn.sendall(bytes(hdrs + '\r\n' + response + '\r\n'))
+			self.conn.sendall(headers + response)
 		except Exception:# as (errno, strerror):
 			print("-----------------------------------")
 			print("[Error] responding to the client")# % strerror)
@@ -61,15 +55,15 @@ class Respondent(threading.Thread):
                                 response = '401'
                                 return (headers,response)
 		request = urllib2.Request(url)
-		opener = urllib2.build_opener()
+		cj = CookieJar()
+		opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 		for k,v in request_headers.iteritems():
 			request.add_header(k, v)
-		try:
-			response = opener.open(request).read()
-		except Exception:
-			headers = {'via': '1.0', 'status':'200', 'content-type':'text/html'}
-			response = '501 Internal Server Error (Proxy)'
-		return (headers,response)
+
+		response = opener.open(request).read()
+		headers = opener.open(request).headers
+		headers = "".join([ "%s: %s\r\n" % (k,v) for k,v in headers.items() ])
+		return ("HTTP/1.1 200 OK\r\n"+headers+"\r\n",response)
 
 	def run(self):
 		counter = 0
