@@ -1,0 +1,1176 @@
+<HTML>
+<HEAD>
+<!-- This HTML file has been created by texi2html 1.51
+     from faq.texi on 1 September 2000 -->
+
+<TITLE>Unix Programming Frequently Asked Questions - 1. Process Control</TITLE>
+</HEAD>
+<BODY>
+Go to the <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_1.html">first</A>, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_1.html">previous</A>, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_3.html">next</A>, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_8.html">last</A> section, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html">table of contents</A>.
+<P><HR><P>
+
+
+<H1><A NAME="SEC2" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC2">1. Process Control</A></H1>
+
+
+
+<H2><A NAME="SEC3" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC3">1.1 Creating new processes: fork()</A></H2>
+
+
+
+<H3><A NAME="SEC4" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC4">1.1.1 What does fork() do?</A></H3>
+
+
+<PRE>
+#include &#60;sys/types.h&#62;
+#include &#60;unistd.h&#62;
+
+pid_t fork(void);
+</PRE>
+
+<P>
+The <CODE>fork()</CODE> function is used to create a new process from an
+existing process.  The new process is called the child process, and the
+existing process is called the parent.  You can tell which is which by
+checking the return value from <CODE>fork()</CODE>.  The parent gets the
+child's pid returned to him, but the child gets 0 returned to him.  Thus
+this simple code illustrate's the basics of it.
+
+</P>
+
+<PRE>
+pid_t pid;
+
+switch (pid = fork())
+{
+case -1:
+    /* Here pid is -1, the fork failed */
+    /* Some possible reasons are that you're */
+    /* out of process slots or virtual memory */
+    perror("The fork failed!");
+    break;
+
+case 0:
+    /* pid of zero is the child */
+    /* Here we're the child...what should we do? */
+    /* ... */
+    /* but after doing it, we should do something like: */
+    _exit(0);
+
+default:
+    /* pid greater than zero is parent getting the child's pid */
+    printf("Child's pid is %d\n",pid);
+}
+</PRE>
+
+<P>
+Of course, one can use <CODE>if()... else...</CODE> instead of
+<CODE>switch()</CODE>, but the above form is a useful idiom.
+
+</P>
+<P>
+Of help when doing this is knowing just what is and is not inherited by
+the child.  This list can vary depending on Unix implementation, so take
+it with a grain of salt.  Note that the child gets <EM>copies</EM> of these
+things, not the real thing.
+
+</P>
+<P>
+Inherited by the child from the parent:
+
+</P>
+
+<UL>
+<LI>
+
+process credentials (real/effective/saved UIDs and GIDs)
+
+<LI>
+
+environment
+
+<LI>
+
+stack
+
+<LI>
+
+memory
+
+<LI>
+
+open file descriptors (note that the underlying file positions are
+shared between the parent and child, which can be confusing)
+
+<LI>
+
+close-on-exec flags
+
+<LI>
+
+signal handling settings
+
+<LI>
+
+nice value
+
+<LI>
+
+scheduler class
+
+<LI>
+
+process group ID
+
+<LI>
+
+session ID
+
+<LI>
+
+current working directory
+
+<LI>
+
+root directory
+
+<LI>
+
+file mode creation mask (umask)
+
+<LI>
+
+resource limits
+
+<LI>
+
+controlling terminal
+</UL>
+
+<P>
+Unique to the child:
+
+</P>
+
+<UL>
+<LI>
+
+process ID
+
+<LI>
+
+different parent process ID
+
+<LI>
+
+Own copy of file descriptors and directory streams.
+
+<LI>
+
+process, text, data and other memory locks are NOT inherited.
+
+<LI>
+
+process times, in the tms struct
+
+<LI>
+
+resource utilizations are set to 0
+
+<LI>
+
+pending signals initialized to the empty set
+
+<LI>
+
+timers created by timer_create not inherited
+
+<LI>
+
+asynchronous input or output operations not inherited
+</UL>
+
+
+
+<H3><A NAME="SEC5" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC5">1.1.2 What's the difference between fork() and vfork()?</A></H3>
+
+<P>
+Some systems have a system call <CODE>vfork()</CODE>, which was originally
+designed as a lower-overhead version of <CODE>fork()</CODE>. Since
+<CODE>fork()</CODE> involved copying the entire address space of the process,
+and was therefore quite expensive, the <CODE>vfork()</CODE> function was
+introduced (in 3.0BSD).
+
+</P>
+<P>
+<STRONG>However</STRONG>, since <CODE>vfork()</CODE> was introduced, the
+implementation of <CODE>fork()</CODE> has improved drastically, most notably
+with the introduction of `copy-on-write', where the copying of the
+process address space is transparently faked by allowing both processes
+to refer to the same physical memory until either of them modify
+it. This largely removes the justification for <CODE>vfork()</CODE>; indeed, a
+large proportion of systems now lack the original functionality of
+<CODE>vfork()</CODE> completely. For compatibility, though, there may still be
+a <CODE>vfork()</CODE> call present, that simply calls <CODE>fork()</CODE> without
+attempting to emulate all of the <CODE>vfork()</CODE> semantics.
+
+</P>
+<P>
+As a result, it is <EM>very</EM> unwise to actually make use of any of the
+differences between <CODE>fork()</CODE> and <CODE>vfork()</CODE>. Indeed, it is
+probably unwise to use <CODE>vfork()</CODE> at all, unless you know exactly
+<EM>why</EM> you want to.
+
+</P>
+<P>
+The basic difference between the two is that when a new process is
+created with <CODE>vfork()</CODE>, the parent process is temporarily
+suspended, and the child process might borrow the parent's address
+space. This strange state of affairs continues until the child process
+either exits, or calls <CODE>execve()</CODE>, at which point the parent
+process continues.
+
+</P>
+<P>
+This means that the child process of a <CODE>vfork()</CODE> must be careful to
+avoid unexpectedly modifying variables of the parent process. In
+particular, the child process must <STRONG>not</STRONG> return from the function
+containing the <CODE>vfork()</CODE> call, and it must <STRONG>not</STRONG> call
+<CODE>exit()</CODE> (if it needs to exit, it should use <CODE>_exit()</CODE>;
+actually, this is also true for the child of a normal <CODE>fork()</CODE>).
+
+</P>
+
+
+<H3><A NAME="SEC6" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC6">1.1.3 Why use _exit rather than exit in the child branch of a fork?</A></H3>
+
+<P>
+There are a few differences between <CODE>exit()</CODE> and <CODE>_exit()</CODE>
+that become significant when <CODE>fork()</CODE>, and especially
+<CODE>vfork()</CODE>, is used.
+
+</P>
+<P>
+The basic difference between <CODE>exit()</CODE> and <CODE>_exit()</CODE> is that
+the former performs clean-up related to user-mode constructs in the
+library, and calls user-supplied cleanup functions, whereas the latter
+performs only the kernel cleanup for the process.
+
+</P>
+<P>
+In the child branch of a <CODE>fork()</CODE>, it is normally incorrect to use
+<CODE>exit()</CODE>, because that can lead to stdio buffers being flushed
+twice, and temporary files being unexpectedly removed. In C++ code the
+situation is worse, because destructors for static objects may be run
+incorrectly.  (There are some unusual cases, like daemons, where the
+<EM>parent</EM> should call <CODE>_exit()</CODE> rather than the child; the
+basic rule, applicable in the overwhelming majority of cases, is that
+<CODE>exit()</CODE> should be called only once for each entry into
+<CODE>main</CODE>.)
+
+</P>
+<P>
+In the child branch of a <CODE>vfork()</CODE>, the use of <CODE>exit()</CODE> is
+even more dangerous, since it will affect the state of the <EM>parent</EM>
+process.
+
+</P>
+
+
+<H2><A NAME="SEC7" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC7">1.2 Environment variables</A></H2>
+
+
+
+<H3><A NAME="SEC8" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC8">1.2.1 How can I get/set an environment variable from a program?</A></H3>
+
+<P>
+Getting the value of an environment variable is done by using
+<CODE>getenv()</CODE>.
+
+</P>
+
+<PRE>
+#include &#60;stdlib.h&#62;
+
+char *getenv(const char *name);
+</PRE>
+
+<P>
+Setting the value of an environment variable is done by using
+<CODE>putenv()</CODE>.
+
+</P>
+
+<PRE>
+#include &#60;stdlib.h&#62;
+
+int putenv(char *string);
+</PRE>
+
+<P>
+The string passed to putenv must <EM>not</EM> be freed or made invalid,
+since a pointer to it is kept by <CODE>putenv()</CODE>.  This means that it
+must either be a static buffer or allocated off the heap.  The string
+can be freed if the environment variable is redefined or deleted via
+another call to <CODE>putenv()</CODE>.
+
+</P>
+<P>
+Remember that environment variables are inherited; each process has a
+separate copy of the environment. As a result, you can't change the
+value of an environment variable in another process, such as the shell.
+
+</P>
+<P>
+Suppose you wanted to get the value for the <CODE>TERM</CODE> environment
+variable.  You would use this code:
+
+</P>
+
+<PRE>
+char *envvar;
+
+envvar=getenv("TERM");
+
+printf("The value for the environment variable TERM is ");
+if(envvar)
+{
+    printf("%s\n",envvar);
+}
+else
+{
+    printf("not set.\n");
+}
+</PRE>
+
+<P>
+Now suppose you wanted to create a new environment variable called
+<CODE>MYVAR</CODE>, with a value of <CODE>MYVAL</CODE>.  This is how you'd do it.
+
+</P>
+
+<PRE>
+static char envbuf[256];
+
+sprintf(envbuf,"MYVAR=%s","MYVAL");
+
+if(putenv(envbuf))
+{
+    printf("Sorry, putenv() couldn't find the memory for %s\n",envbuf);
+    /* Might exit() or something here if you can't live without it */
+}
+</PRE>
+
+
+
+<H3><A NAME="SEC9" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC9">1.2.2 How can I read the whole environment?</A></H3>
+
+<P>
+If you don't know the names of the environment variables, then the
+<CODE>getenv()</CODE> function isn't much use. In this case, you have to dig
+deeper into how the environment is stored.
+
+</P>
+<P>
+A global variable, <CODE>environ</CODE>, holds a pointer to an array of
+pointers to environment strings, each string in the form
+<CODE>"NAME=value"</CODE>. A <CODE>NULL</CODE> pointer is used to mark the end of
+the array. Here's a trivial program to print the current environment
+(like <CODE>printenv</CODE>):
+
+</P>
+
+<PRE>
+#include &#60;stdio.h&#62;
+
+extern char **environ;
+
+int main()
+{
+    char **ep = environ;
+    char *p;
+    while ((p = *ep++))
+        printf("%s\n", p);
+    return 0;
+}
+</PRE>
+
+<P>
+In general, the <CODE>environ</CODE> variable is also passed as the third,
+optional, parameter to <CODE>main()</CODE>; that is, the above could have been
+written:
+
+</P>
+
+<PRE>
+#include &#60;stdio.h&#62;
+
+int main(int argc, char **argv, char **envp)
+{
+    char *p;
+    while ((p = *envp++))
+        printf("%s\n", p);
+    return 0;
+}
+</PRE>
+
+<P>
+However, while pretty universally supported, this method isn't actually
+defined by the POSIX standards. (It's also less useful, in general.)
+
+</P>
+
+
+<H2><A NAME="SEC10" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC10">1.3 How can I sleep for less than a second?</A></H2>
+
+<P>
+The <CODE>sleep()</CODE> function, which is available on all Unixes, only
+allows for a duration specified in seconds. If you want finer
+granularity, then you need to look for alternatives:
+
+</P>
+
+<UL>
+<LI>
+
+Many systems have a function <CODE>usleep()</CODE>
+
+<LI>
+
+You can use <CODE>select()</CODE> or <CODE>poll()</CODE>, specifying no file
+descriptors to test; a common technique is to write a <CODE>usleep()</CODE>
+function based on either of these (see the comp.unix.questions FAQ for
+some examples)
+
+<LI>
+
+If your system has itimers (most do), you can roll your own
+<CODE>usleep()</CODE> using them (see the BSD sources for <CODE>usleep()</CODE> for
+how to do this)
+
+<LI>
+
+If you have POSIX realtime, there is a <CODE>nanosleep()</CODE> function
+</UL>
+
+<P>
+Of the above, <CODE>select()</CODE> is probably the most portable (and
+strangely, it is often much more efficient than <CODE>usleep()</CODE> or an
+itimer-based method). However, the behaviour may be different if signals
+are caught while asleep; this may or may not be an issue depending on
+the application.
+
+</P>
+<P>
+Whichever route you choose, it is important to realise that you may be
+constrained by the timer resolution of the system (some systems allow
+very short time intervals to be specified, others have a resolution of,
+say, 10ms and will round all timings to that). Also, as for
+<CODE>sleep()</CODE>, the delay you specify is only a <EM>minimum</EM> value;
+after the specified period elapses, there will be an indeterminate delay
+before your process next gets scheduled.
+
+</P>
+
+
+<H2><A NAME="SEC11" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC11">1.4 How can I get a finer-grained version of alarm()?</A></H2>
+
+<P>
+Modern Unixes tend to implement alarms using the <CODE>setitimer()</CODE>
+function, which has a higher resolution and more options than the simple
+<CODE>alarm()</CODE> function. One should generally assume that <CODE>alarm()</CODE>
+and <CODE>setitimer(ITIMER_REAL)</CODE> may be the same underlying timer, and
+accessing it both ways may cause confusion.
+
+</P>
+<P>
+Itimers can be used to implement either one-shot or repeating signals;
+also, there are generally 3 separate timers available:
+
+</P>
+<DL>
+
+<DT><CODE>ITIMER_REAL</CODE>
+<DD>
+counts real (wall clock) time, and sends the <CODE>SIGALRM</CODE> signal
+
+<DT><CODE>ITIMER_VIRTUAL</CODE>
+<DD>
+counts process virtual (user CPU) time, and sends the <CODE>SIGVTALRM</CODE>
+signal
+
+<DT><CODE>ITIMER_PROF</CODE>
+<DD>
+counts user and system CPU time, and sends the <CODE>SIGPROF</CODE> signal;
+it is intended for interpreters to use for profiling.
+</DL>
+
+<P>
+Itimers, however, are not part of many of the standards, despite having
+been present since 4.2BSD. The POSIX realtime extensions define some
+similar, but different, functions.
+
+</P>
+
+
+<H2><A NAME="SEC12" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC12">1.5 How can a parent and child process communicate?</A></H2>
+
+<P>
+A parent and child can communicate through any of the normal
+inter-process communication schemes (pipes, sockets, message queues,
+shared memory), but also have some special ways to communicate that take
+advantage of their relationship as a parent and child.
+
+</P>
+<P>
+One of the most obvious is that the parent can get the exit status of
+the child.
+
+</P>
+<P>
+Since the child inherits file descriptors from its parent, the parent
+can open both ends of a pipe, fork, then the parent close one end and
+the child close the other end of the pipe.  This is what happens when
+you call the <CODE>popen()</CODE> routine to run another program from within
+yours, i.e. you can write to the file descriptor returned from
+<CODE>popen()</CODE> and the child process sees it as its stdin, or you can
+read from the file descriptor and see what the program wrote to its
+stdout. (The mode parameter to <CODE>popen()</CODE> defines which; if you want
+to do both, then you can do the plumbing yourself without too much
+difficulty.)
+
+</P>
+<P>
+Also, the child process inherits memory segments mmapped anonymously (or
+by mmapping the special file <TT>`/dev/zero'</TT>) by the parent; these
+shared memory segments are not accessible from unrelated processes.
+
+</P>
+
+
+<H2><A NAME="SEC13" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC13">1.6 How do I get rid of zombie processes?</A></H2>
+
+
+
+<H3><A NAME="SEC14" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC14">1.6.1 What is a zombie?</A></H3>
+
+<P>
+When a program forks and the child finishes before the parent, the
+kernel still keeps some of its information about the child in case the
+parent might need it -- for example, the parent may need to check the
+child's exit status.  To be able to get this information, the parent
+calls <CODE>wait()</CODE>; when this happens, the kernel can discard the
+information.
+
+</P>
+<P>
+In the interval between the child terminating and the parent calling
+<CODE>wait()</CODE>, the child is said to be a `zombie'.  (If you do `ps', the
+child will have a `Z' in its status field to indicate this.)  Even
+though it's not running, it's still taking up an entry in the process
+table.  (It consumes no other resources, but some utilities may show
+bogus figures for e.g. CPU usage; this is because some parts of the
+process table entry have been overlaid by accounting info to save
+space.)
+
+</P>
+<P>
+This is not good, as the process table has a fixed number of entries and
+it is possible for the system to run out of them. Even if the system
+doesn't run out, there is a limit on the number of processes each user
+can run, which is usually smaller than the system's limit. This is one
+of the reasons why you should always check if <CODE>fork()</CODE> failed, by
+the way!
+
+</P>
+<P>
+If the parent terminates without calling wait(), the child is `adopted'
+by <CODE>init</CODE>, which handles the work necessary to cleanup after the
+child.  (This is a special system program with process ID 1 -- it's
+actually the first program to run after the system boots up).
+
+</P>
+
+
+<H3><A NAME="SEC15" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC15">1.6.2 How do I prevent them from occuring?</A></H3>
+
+<P>
+You need to ensure that your parent process calls <CODE>wait()</CODE> (or
+<CODE>waitpid()</CODE>, <CODE>wait3()</CODE>, etc.) for every child process that
+terminates; or, on some systems, you can instruct the system that you
+are uninterested in child exit states.
+
+</P>
+<P>
+Another approach is to <CODE>fork()</CODE> <EM>twice</EM>, and have the
+immediate child process exit straight away. This causes the grandchild
+process to be orphaned, so the init process is responsible for cleaning
+it up. For code to do this, see the function <CODE>fork2()</CODE> in the
+examples section.
+
+</P>
+<P>
+To ignore child exit states, you need to do the following (check your
+system's manpages to see if this works):
+
+</P>
+
+<PRE>
+    struct sigaction sa;
+    sa.sa_handler = SIG_IGN;
+#ifdef SA_NOCLDWAIT
+    sa.sa_flags = SA_NOCLDWAIT;
+#else
+    sa.sa_flags = 0;
+#endif
+    sigemptyset(&#38;sa.sa_mask);
+    sigaction(SIGCHLD, &#38;sa, NULL);
+</PRE>
+
+<P>
+If this is successful, then the <CODE>wait()</CODE> functions are prevented
+from working; if any of them are called, they will wait until <EM>all</EM>
+child processes have terminated, then return failure with 
+<CODE>errno == ECHILD</CODE>.
+
+</P>
+<P>
+The other technique is to catch the SIGCHLD signal, and have the signal
+handler call <CODE>waitpid()</CODE> or <CODE>wait3()</CODE>. See the examples
+section for a complete program.
+
+</P>
+
+
+<H2><A NAME="SEC16" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC16">1.7 How do I get my program to act like a daemon?</A></H2>
+
+<P>
+A <STRONG>daemon</STRONG> process is usually defined as a background process that
+does not belong to a terminal session. Many system services are performed
+by daemons; network services, printing etc.
+
+</P>
+<P>
+Simply invoking a program in the background isn't really adequate for these
+long-running programs; that does not correctly detach the process from the
+terminal session that started it. Also, the conventional way of starting
+daemons is simply to issue the command manually or from an rc script; the
+daemon is expected to put <EM>itself</EM> into the background.
+
+</P>
+<P>
+Here are the steps to become a daemon:
+
+</P>
+
+<OL>
+<LI>
+
+<CODE>fork()</CODE> so the parent can exit, this returns control to the
+command line or shell invoking your program.  This step is required so
+that the new process is guaranteed not to be a process group leader. The
+next step, <CODE>setsid()</CODE>, fails if you're a process group leader.
+
+<LI>
+
+<CODE>setsid()</CODE> to become a process group and session group
+leader. Since a controlling terminal is associated with a session, and
+this new session has not yet acquired a controlling terminal our process
+now has no controlling terminal, which is a Good Thing for daemons.
+
+<LI>
+
+<CODE>fork()</CODE> again so the parent, (the session group leader), can exit.
+This means that we, as a non-session group leader, can never regain a
+controlling terminal.
+
+<LI>
+
+<CODE>chdir("/")</CODE> to ensure that our process doesn't keep any directory
+in use. Failure to do this could make it so that an administrator
+couldn't unmount a filesystem, because it was our current directory.
+
+[Equivalently, we could change to any directory containing files
+important to the daemon's operation.]
+
+<LI>
+
+<CODE>umask(0)</CODE> so that we have complete control over the permissions of
+anything we write. We don't know what umask we may have inherited.
+
+[This step is optional]
+
+<LI>
+
+<CODE>close()</CODE> fds 0, 1, and 2. This releases the standard in, out, and
+error we inherited from our parent process. We have no way of knowing
+where these fds might have been redirected to. Note that many daemons
+use <CODE>sysconf()</CODE> to determine the limit <CODE>_SC_OPEN_MAX</CODE>.
+<CODE>_SC_OPEN_MAX</CODE> tells you the maximun open files/process. Then in a
+loop, the daemon can close all possible file descriptors. You have to
+decide if you need to do this or not.  If you think that there might be
+file-descriptors open you should close them, since there's a limit on
+number of concurrent file descriptors.
+
+<LI>
+
+Establish new open descriptors for stdin, stdout and stderr. Even if you
+don't plan to use them, it is still a good idea to have them open.  The
+precise handling of these is a matter of taste; if you have a logfile,
+for example, you might wish to open it as stdout or stderr, and open
+<TT>`/dev/null'</TT> as stdin; alternatively, you could open
+<TT>`/dev/console'</TT> as stderr and/or stdout, and <TT>`/dev/null'</TT> as
+stdin, or any other combination that makes sense for your particular
+daemon.
+</OL>
+
+<P>
+Almost none of this is necessary (or advisable) if your daemon is being
+started by <CODE>inetd</CODE>.  In that case, stdin, stdout and stderr are all
+set up for you to refer to the network connection, and the
+<CODE>fork()</CODE>s and session manipulation should <EM>not</EM> be done (to
+avoid confusing <CODE>inetd</CODE>).  Only the <CODE>chdir()</CODE> and
+<CODE>umask()</CODE> steps remain as useful.
+
+</P>
+
+
+<H2><A NAME="SEC17" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC17">1.8 How can I look at process in the system like ps does?</A></H2>
+
+<P>
+You really <EM>don't</EM> want to do this.
+
+</P>
+<P>
+The most portable way, by far, is to do <CODE>popen(pscmd, "r")</CODE> and
+parse the output. (pscmd should be something like <SAMP>`"ps -ef"'</SAMP> on
+SysV systems; on BSD systems there are many possible display options:
+choose one.)
+
+</P>
+<P>
+In the examples section, there are two complete versions of this; one
+for SunOS 4, which requires root permission to run and uses the
+<SAMP>`kvm_*'</SAMP> routines to read the information from kernel data
+structures; and another for SVR4 systems (including SunOS 5), which uses
+the <TT>`/proc'</TT> filesystem.
+
+</P>
+<P>
+It's even easier on systems with an SVR4.2-style <TT>`/proc'</TT>; just read
+a psinfo_t structure from the file <TT>`/proc/PID/psinfo'</TT> for each PID
+of interest. However, this method, while probably the cleanest, is also
+perhaps the least well-supported. (On FreeBSD's <TT>`/proc'</TT>, you read a
+semi-undocumented printable string from <TT>`/proc/PID/status'</TT>; Linux
+has something similar.)
+
+</P>
+
+
+<H2><A NAME="SEC18" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC18">1.9 Given a pid, how can I tell if it's a running program?</A></H2>
+
+<P>
+Use <CODE>kill()</CODE> with 0 for the signal number.
+
+</P>
+<P>
+There are four possible results from this call:
+
+</P>
+
+<UL>
+<LI>
+
+<CODE>kill()</CODE> returns 0
+
+
+<UL>
+<LI>
+
+this implies that a process exists with the given PID, and the system
+would allow you to send signals to it. It is system-dependent whether
+the process could be a zombie.
+</UL>
+
+<LI>
+
+<CODE>kill()</CODE> returns @math{-1}, <CODE>errno == ESRCH</CODE>
+
+
+<UL>
+<LI>
+
+either no process exists with the given PID, or security enhancements
+are causing the system to deny its existence. (On some systems, the
+process could be a zombie.)
+</UL>
+
+<LI>
+
+<CODE>kill()</CODE> returns @math{-1}, <CODE>errno == EPERM</CODE>
+
+
+<UL>
+<LI>
+
+the system would not allow you to kill the specified process.  This
+means that either the process exists (again, it could be a zombie) or
+draconian security enhancements are present (e.g. your process is not
+allowed to send signals to <EM>anybody</EM>).
+</UL>
+
+<LI>
+
+<CODE>kill()</CODE> returns @math{-1}, with some other value of <CODE>errno</CODE>
+
+
+<UL>
+<LI>
+
+you are in trouble!
+</UL>
+
+</UL>
+
+<P>
+The most-used technique is to assume that success or failure with
+<CODE>EPERM</CODE> implies that the process exists, and any other error
+implies that it doesn't.
+
+</P>
+<P>
+An alternative exists, if you are writing specifically for a system (or
+all those systems) that provide a <TT>`/proc'</TT> filesystem: checking for
+the existence of <TT>`/proc/PID'</TT> may work.
+
+</P>
+
+
+<H2><A NAME="SEC19" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC19">1.10 What's the return value of system/pclose/waitpid?</A></H2>
+
+
+<BLOCKQUOTE>
+<P>
+The return value of <CODE>system()</CODE>, <CODE>pclose()</CODE>, or
+<CODE>waitpid()</CODE> doesn't seem to be the exit value of my process...
+or the exit value is shifted left 8 bits... what's the deal?
+</BLOCKQUOTE>
+
+<P>
+The man page is right, and so are you!  If you read the man page for
+<CODE>waitpid()</CODE> you'll find that the return code for the process is
+encoded. The value returned by the process is normally in the top 16
+bits, and the rest is used for other things.  You can't rely on this
+though, not if you want to be portable, so the suggestion is that you
+use the macros provided. These are usually documented under
+<CODE>wait()</CODE> or <CODE>wstat</CODE>.
+
+</P>
+<P>
+Macros defined for the purpose (in <TT>`&#60;sys/wait.h&#62;'</TT>) include (stat is
+the value returned by <CODE>waitpid()</CODE>):
+
+</P>
+<DL>
+
+<DT><CODE>WIFEXITED(stat)</CODE>
+<DD>
+Non zero if child exited normally.
+
+<DT><CODE>WEXITSTATUS(stat)</CODE>
+<DD>
+exit code returned by child
+
+<DT><CODE>WIFSIGNALED(stat)</CODE>
+<DD>
+Non-zero if child was terminated by a signal
+
+<DT><CODE>WTERMSIG(stat)</CODE>
+<DD>
+signal number that terminated child
+
+<DT><CODE>WIFSTOPPED(stat)</CODE>
+<DD>
+non-zero if child is stopped
+
+<DT><CODE>WSTOPSIG(stat)</CODE>
+<DD>
+number of signal that stopped child
+
+<DT><CODE>WIFCONTINUED(stat)</CODE>
+<DD>
+non-zero if status was for continued child
+
+<DT><CODE>WCOREDUMP(stat)</CODE>
+<DD>
+If <CODE>WIFSIGNALED(stat)</CODE> is non-zero, this is non-zero if the process
+left behind a core dump.
+</DL>
+
+
+
+<H2><A NAME="SEC20" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC20">1.11 How do I find out about a process' memory usage?</A></H2>
+
+<P>
+Look at <CODE>getrusage()</CODE>, if available.
+
+</P>
+
+
+<H2><A NAME="SEC21" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC21">1.12 Why do processes never decrease in size?</A></H2>
+
+<P>
+When you free memory back to the heap with <CODE>free()</CODE>, on almost all
+systems that <EM>doesn't</EM> reduce the memory usage of your program.
+The memory <CODE>free()</CODE>d is still part of the process' address space,
+and will be used to satisfy future <CODE>malloc()</CODE> requests.
+
+</P>
+<P>
+If you really need to free memory back to the system, look at using
+<CODE>mmap()</CODE> to allocate private anonymous mappings.  When these are
+unmapped, the memory really is released back to the system.  Certain
+implementations of <CODE>malloc()</CODE> (e.g. in the GNU C Library)
+automatically use <CODE>mmap()</CODE> where available to perform large
+allocations; these blocks are then returned to the system on
+<CODE>free()</CODE>.
+
+</P>
+<P>
+Of course, if your program increases in size when you think it
+shouldn't, you may have a `memory leak' -- a bug in your program that
+results in unused memory not being freed.
+
+</P>
+
+
+<H2><A NAME="SEC22" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC22">1.13 How do I change the name of my program (as seen by `ps')?</A></H2>
+
+<P>
+On BSDish systems, the <CODE>ps</CODE> program actually looks into the address
+space of the running process to find the current <CODE>argv[]</CODE>, and
+displays that. That enables a program to change its `name' simply by
+modifying <CODE>argv[]</CODE>.
+
+</P>
+<P>
+On SysVish systems, the command name and usually the first 80 bytes of
+the parameters are stored in the process' u-area, and so can't be
+directly modified. There may be a system call to change this (unlikely),
+but otherwise the only way is to perform an <CODE>exec()</CODE>, or write into
+kernel memory (dangerous, and only possible if running as root).
+
+</P>
+<P>
+Some systems (notably Solaris) may have two separate versions of
+<CODE>ps</CODE>, one in <TT>`/usr/bin/ps'</TT> with SysV behaviour, and one in
+<TT>`/usr/ucb/ps'</TT> with BSD behaviour. On these systems, if you change
+<CODE>argv[]</CODE>, then the BSD version of <CODE>ps</CODE> will reflect the
+change, and the SysV version won't.
+
+</P>
+<P>
+Check to see if your system has a function <CODE>setproctitle()</CODE>.
+
+</P>
+
+
+<H2><A NAME="SEC23" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC23">1.14 How can I find a process' executable file?</A></H2>
+
+<P>
+This would be a good candidate for a list of `Frequently Unanswered
+Questions', because the fact of asking the question usually means that
+the design of the program is flawed. <TT>:-)</TT>
+
+</P>
+<P>
+You can make a `best guess' by looking at the value of <CODE>argv[0]</CODE>.
+If this contains a <SAMP>`/'</SAMP>, then it is probably the absolute or
+relative (to the current directory at program start) path of the
+executable.  If it does not, then you can mimic the shell's search of
+the <CODE>PATH</CODE> variable, looking for the program.  However, success is
+not guaranteed, since it is possible to invoke programs with arbitrary
+values of <CODE>argv[0]</CODE>, and in any case the executable may have been
+renamed or deleted since it was started.
+
+</P>
+<P>
+If all you want is to be able to print an appropriate invocation name
+with error messages, then the best approach is to have <CODE>main()</CODE>
+save the value of <CODE>argv[0]</CODE> in a global variable for use by the
+entire program.  While there is no guarantee whatsoever that the value
+in <CODE>argv[0]</CODE> will be meaningful, it is the best option available in 
+most circumstances.
+
+</P>
+<P>
+The most common reason people ask this question is in order to locate
+configuration files with their program. This is considered to be bad
+form; directories containing executables should contain <EM>nothing</EM>
+except executables, and administrative requirements often make it
+desirable for configuration files to be located on different filesystems
+to executables.
+
+</P>
+<P>
+A less common, but more legitimate, reason to do this is to allow the
+program to call <CODE>exec()</CODE> <EM>on itself</EM>; this is a method used
+(e.g. by some versions of <CODE>sendmail</CODE>) to completely reinitialise
+the process (e.g. if a daemon receives a <CODE>SIGHUP</CODE>).
+
+</P>
+
+
+<H3><A NAME="SEC24" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC24">1.14.1 So where do I put my configuration files then?</A></H3>
+
+<P>
+The correct directory for this usually depends on the particular flavour
+of Unix you're using; <TT>`/var/opt/PACKAGE'</TT>, <TT>`/usr/local/lib'</TT>,
+<TT>`/usr/local/etc'</TT>, or any of several other possibilities.
+User-specific configuration files are usually hidden `dotfiles' under
+<CODE>$HOME</CODE> (e.g. <TT>`$HOME/.exrc'</TT>).
+
+</P>
+<P>
+From the point of view of a package that is expected to be usable across
+a range of systems, this usually implies that the location of any
+sitewide configuration files will be a compiled-in default, possibly
+using a <SAMP>`--prefix'</SAMP> option on a configure script (Autoconf scripts
+do this).  You might wish to allow this to be overridden at runtime by
+an environment variable.  (If you're not using a configure script, then
+put the default in the Makefile as a <SAMP>`-D'</SAMP> option on compiles, or
+put it in a <TT>`config.h'</TT> header file, or something similar.)
+
+</P>
+<P>
+User-specific configuration should be either a single dotfile under
+<CODE>$HOME</CODE>, or, if you need multiple files, a dot-subdirectory.
+(Files or directories whose names start with a dot are omitted from
+directory listings by default.) Avoid creating multiple entries under
+<CODE>$HOME</CODE>, because this can get very cluttered. Again, you can allow
+the user to override this location with an environment
+variable. Programs should always behave sensibly if they fail to find
+any per-user configuration.
+
+</P>
+
+
+<H2><A NAME="SEC25" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC25">1.15 Why doesn't my process get SIGHUP when its parent dies?</A></H2>
+
+<P>
+Because it's not supposed to.
+
+</P>
+<P>
+<CODE>SIGHUP</CODE> is a signal that means, by convention, "the terminal line
+got hung up".  It has nothing to do with parent processes, and is
+usually generated by the tty driver (and delivered to the foreground
+process group).
+
+</P>
+<P>
+However, as part of the session management system, there are exactly two
+cases where <CODE>SIGHUP</CODE> is sent on the death of a process:
+
+</P>
+
+<UL>
+<LI>
+
+When the process that dies is the session leader of a session that is
+attached to a terminal device, <CODE>SIGHUP</CODE> is sent to all processes in
+the foreground process group of that terminal device.
+
+<LI>
+
+When the death of a process causes a process group to become orphaned,
+and one or more processes in the orphaned group are <EM>stopped</EM>, then
+<CODE>SIGHUP</CODE> and <CODE>SIGCONT</CODE> are sent to all members of the orphaned
+group.  (An orphaned process group is one where no process in the group
+has a parent which is part of the same session, but not the same process
+group.)
+
+</UL>
+
+
+
+<H2><A NAME="SEC26" HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC26">1.16 How can I kill all descendents of a process?</A></H2>
+
+<P>
+There isn't a fully general approach to doing this.  While you can
+determine the relationships between processes by parsing <CODE>ps</CODE>
+output, this is unreliable in that it represents only a snapshot of the
+system.
+
+</P>
+<P>
+However, if you're lauching a subprocess that might spawn further
+subprocesses of its own, and you want to be able to kill the entire
+spawned job at one go, the solution is to put the subprocess into a
+new process group, and kill that process group if you need to.
+
+</P>
+<P>
+The preferred function for creating process groups is <CODE>setpgid()</CODE>.
+Use this if possible rather than <CODE>setpgrp()</CODE> because the latter
+differs between systems (on some systems <SAMP>`setpgrp();'</SAMP> is equivalent
+to <SAMP>`setpgid(0,0);'</SAMP>, on others, <CODE>setpgrp()</CODE> and <CODE>setpgid()</CODE>
+are identical).
+
+</P>
+<P>
+See the job-control example in the examples section.
+
+</P>
+<P>
+Putting a subprocess into its own process group has a number of effects.
+In particular, unless you explicitly place the new process group in the
+foreground, it will be treated as a background job with these
+consequences:
+
+</P>
+
+<UL>
+<LI>
+
+it will be stopped with <CODE>SIGTTIN</CODE> if it attempts to read from the
+terminal
+
+<LI>
+
+if <CODE>tostop</CODE> is set in the terminal modes, it will be stopped with
+<CODE>SIGTTOU</CODE> if it attempts to write to the terminal (attempting to
+change the terminal modes should also cause this, independently of the
+current setting of <CODE>tostop</CODE>)
+
+<LI>
+
+The subprocess will not receive keyboard signals from the terminal
+(e.g. <CODE>SIGINT</CODE> or <CODE>SIGQUIT</CODE>)
+</UL>
+
+<P>
+In many applications input and output will be redirected anyway, so the
+most significant effect will be the lack of keyboard signals. The parent
+application should arrange to catch at least <CODE>SIGINT</CODE> and
+<CODE>SIGQUIT</CODE> (and preferably <CODE>SIGTERM</CODE> as well) and clean up any
+background jobs as necessary.
+
+</P>
+<P><HR><P>
+Go to the <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_1.html">first</A>, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_1.html">previous</A>, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_3.html">next</A>, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_8.html">last</A> section, <A HREF="http://web.archive.org/web/20070410070022/http://www.erlenstar.demon.co.uk/unix/faq_toc.html">table of contents</A>.
+</BODY>
+</HTML>
+
+
+
+
+
+<!--
+     FILE ARCHIVED ON 7:00:22 Apr 10, 2007 AND RETRIEVED FROM THE
+     INTERNET ARCHIVE ON 18:37:45 Dec 31, 2012.
+     JAVASCRIPT APPENDED BY WAYBACK MACHINE, COPYRIGHT INTERNET ARCHIVE.
+
+     ALL OTHER CONTENT MAY ALSO BE PROTECTED BY COPYRIGHT (17 U.S.C.
+     SECTION 108(a)(3)).
+-->

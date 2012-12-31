@@ -11,13 +11,6 @@ import urllib
 
 from cookielib import CookieJar
 
-HOST = ''                 # Symbolic name meaning all available interfaces
-PORT = 65500              # Arbitrary non-privileged port
-BUFFER_SIZE = 1024
-LINE_TERMINATOR = '\r\n'
-
-ads = []
-
 FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 logging.basicConfig(format=FORMAT, filename='./log', level=logging.INFO)
 logger = logging.getLogger('python-http-proxy')
@@ -28,7 +21,7 @@ def signal_handler(signal, frame):
 
 signal.signal(signal.SIGINT, signal_handler)
 
-class Respondent(threading.Thread):
+class Responder(threading.Thread):
 	def __init__(self, conn, addr):
 		self.conn = conn
 		self.addr = addr
@@ -48,13 +41,20 @@ class Respondent(threading.Thread):
 		#conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
 
-	def make_request(self, url, request_headers):
-		headers = {}
+	def check_url(self, url):
+		'''Is the url to be loaded banned'''
+		# TODO
+		return True
+		'''
                 for ad in ads:
                         if ad in url:
-                                headers = {'via': '1.0', 'status':'401', 'content-type':'text/html'}
-                                response = '401'
-                                return (headers,response)
+				return False
+		'''
+
+	def make_request(self, url, request_headers):
+		headers = {}
+		if not check_url(url):
+			return ('HTTP/1.1 499 Banned URL\r\n\r\n','')
 		data = {} ##??
 		data = urllib.urlencode(data)
 
@@ -88,8 +88,9 @@ class Respondent(threading.Thread):
                                         if len(split_buff) > 1:
                                                 buff = split_buff[1]
                                         lines.append(line.strip())
-					done = buff == '\r\n'
+					done = (buff == '\r\n' or not buff)
 
+		print lines
 		if not lines:
 			headers = "500 Bad Request"
 			response = "Something's not quite right!\n"
@@ -111,34 +112,44 @@ class Respondent(threading.Thread):
 			self.respond(headers, response)
 		return
 
-def start_server():
-	s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-	s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
-	s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+class Proxy:
+	def __init__(self):
+                self.HOST = ''                 # Symbolic name meaning all available interfaces
+                self.PORT = 65500              # Arbitrary non-privileged port
+                self.BUFFER_SIZE = 1024
+                self.LINE_TERMINATOR = '\r\n'
+		self.ads = self.load_banned()
+                self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
+                self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-	'''
-		self.rfile = self.connection.makefile('rb', self.rbufsize)
-		self.wfile = self.connection.makefile('wb', self.wbufsize)
-	'''
-	f = open('easylist.txt')
-	f.readline()
-	for line in f:
-		if line[0] == '!':
-			continue
-		ads.append(line.strip())
+                # self.rfile = self.connection.makefile('rb', self.rbufsize)
+                # self.wfile = self.connection.makefile('wb', self.wbufsize)
 
-	try:
-		s.bind((HOST, PORT))
-	except socket.error:# as (errno, strerror):
-		##print("Error: %s" % strerror)
-		print("Could not bind to %s:%s"%(HOST,PORT))
-		sys.exit(1)
-	s.listen(1)
+                try:
+                        self.s.bind((self.HOST, self.PORT))
+                except socket.error:
+                        print("Could not bind to %s:%s" % (self.HOST, self.PORT))
+                        sys.exit(1)
 
-	#launch unlimited threads...
-	while 1:
-		conn, addr = s.accept()
-		Respondent(conn, addr).start()
+	def load_banned(self):
+		'''Build a tree of banned things'''
+		### MAJOR TODO HERE
+		banned = []
+                f = open('easylist.txt')
+		#Skip the first line
+                f.readline()
+                return [ line.strip() for line in f if 
+			line.startswith('/') 
+			and line.statswith('||') ]
+
+        def start(self):
+                s.listen(1)
+
+		#TODO - don't start unlimited number of threads...
+                while 1:
+                        conn, addr = s.accept()
+                        Responder(conn, addr).start()
 
 if __name__=='__main__':
-	start_server()
+	sys.stdout.write('Subclass the Proxy class')
