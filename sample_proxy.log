@@ -1,0 +1,50 @@
+delyan@veleka:~$ curl -vvv https://www.facebook.com/ --proxy http://77.70.123.62:8080                                                                              12/30/12 10:45 PM
+* About to connect() to proxy 77.70.123.62 port 8080 (#0)
+*   Trying 77.70.123.62...
+* connected
+* Connected to 77.70.123.62 (77.70.123.62) port 8080 (#0)
+* Establish HTTP proxy tunnel to www.facebook.com:443
+> CONNECT www.facebook.com:443 HTTP/1.1
+> Host: www.facebook.com:443
+> User-Agent: curl/7.24.0 (x86_64-apple-darwin12.0) libcurl/7.24.0 OpenSSL/0.9.8r zlib/1.2.5
+> Proxy-Connection: Keep-Alive
+> 
+< HTTP/1.1 200 OK
+< 
+* Proxy replied OK to CONNECT request
+* SSLv3, TLS handshake, Client hello (1):
+* SSLv3, TLS handshake, Server hello (2):
+* SSLv3, TLS handshake, CERT (11):
+* SSLv3, TLS handshake, Server finished (14):
+* SSLv3, TLS handshake, Client key exchange (16):
+* SSLv3, TLS change cipher, Client hello (1):
+* SSLv3, TLS handshake, Finished (20):
+* SSLv3, TLS change cipher, Client hello (1):
+* SSLv3, TLS handshake, Finished (20):
+* SSL connection using RC4-SHA
+* Server certificate:
+* 	 subject: C=US; ST=California; L=Palo Alto; O=Facebook, Inc.; CN=*.facebook.com
+* 	 start date: 2012-06-21 00:00:00 GMT
+* 	 expire date: 2013-12-31 23:59:59 GMT
+* 	 subjectAltName: www.facebook.com matched
+* 	 issuer: O=VeriSign Trust Network; OU=VeriSign, Inc.; OU=VeriSign International Server CA - Class 3; OU=www.verisign.com/CPS Incorp.by Ref. LIABILITY LTD.(c)97 VeriSign
+* 	 SSL certificate verify ok.
+> GET / HTTP/1.1
+> User-Agent: curl/7.24.0 (x86_64-apple-darwin12.0) libcurl/7.24.0 OpenSSL/0.9.8r zlib/1.2.5
+> Host: www.facebook.com
+> Accept: */*
+> 
+< HTTP/1.1 302 Found
+< Location: http://www.facebook.com/unsupportedbrowser
+< P3P: CP="Facebook does not have a P3P policy. Learn why here: http://fb.me/p3p"
+< X-Content-Type-Options: nosniff
+< Set-Cookie: datr=JjXhUF-psmn2hrLvazaj7TWf; expires=Wed, 31-Dec-2014 06:48:06 GMT; path=/; domain=.facebook.com; httponly
+< Content-Type: text/html; charset=utf-8
+< X-FB-Debug: XGKtOO1GCJj4niKZQmJYFkznRZpOXrXvBqOzzbRuJVg=
+< Date: Mon, 31 Dec 2012 06:48:06 GMT
+< Connection: keep-alive
+< Content-Length: 0
+< 
+* Connection #0 to host 77.70.123.62 left intact
+* Closing connection #0
+* SSLv3, TLS alert, Client hello (1):

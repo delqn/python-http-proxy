@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import httplib2
+import logging
 from OpenSSL import SSL
 import re
 import signal
@@ -12,6 +13,12 @@ HOST = ''                 # Symbolic name meaning all available interfaces
 PORT = 65500              # Arbitrary non-privileged port
 BUFFER_SIZE = 1024
 LINE_TERMINATOR = '\r\n'
+
+ads = []
+
+FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
+logging.basicConfig(format=FORMAT, filename='./log', level=logging.INFO)
+logger = logging.getLogger('python-http-proxy')
 
 def signal_handler(signal, frame):
         print("Bye!")
@@ -47,6 +54,11 @@ class Respondent(threading.Thread):
 	def make_request(self, url):
                 h = httplib2.Http()
                 try:
+			for ad in ads:
+				if ad in url:
+		                        headers = {'via': '1.0', 'status':'401', 'content-type':'text/html'}
+		                        response = '401'
+					return (headers,response)
                         headers, response = h.request(url)
                 except httplib2.RelativeURIError, e:
                         headers = {'via': '1.0', 'status':'200', 'content-type':'text/html'}
@@ -79,6 +91,8 @@ class Respondent(threading.Thread):
                         if not re.match(r'^http|https://', url):
 				url = 'http://' + url
 
+			d = {'clientip': addr, 'user': 'not_implemented'}
+			logger.info('Request: %s', url, extra=d)
                         h,r = self.make_request(url)
                         self.respond(h, r, url)
                 except ValueError, e:
@@ -95,13 +109,19 @@ s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.rfile = self.connection.makefile('rb', self.rbufsize)
         self.wfile = self.connection.makefile('wb', self.wbufsize)
 '''
+f = open('easylist.txt')
+f.next()
+for line in f:
+	if line[0] == '!':
+		continue
+	ads.append(line.strip())
 
 try:
         s.bind((HOST, PORT))
 except socket.error, e:
         print("Error: %s" % e)
         sys.exit(1)
-s.listen(1)
+s.listen(5)
 
 #launch unlimited threads...
 while 1:
