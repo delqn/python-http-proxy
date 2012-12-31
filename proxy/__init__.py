@@ -7,6 +7,7 @@ import socket
 import sys
 import threading
 import urllib2
+import urllib
 
 from cookielib import CookieJar
 
@@ -54,7 +55,12 @@ class Respondent(threading.Thread):
                                 headers = {'via': '1.0', 'status':'401', 'content-type':'text/html'}
                                 response = '401'
                                 return (headers,response)
-		request = urllib2.Request(url)
+		data = {} ##??
+		data = urllib.urlencode(data)
+
+		query_args = { 'q':'query string', 'foo':'bar' }
+		encoded_args = urllib.urlencode(query_args)
+		request = urllib2.Request(url, encoded_args, request_headers)
 		cj = CookieJar()
 		opener = urllib2.build_opener(urllib2.HTTPCookieProcessor(cj))
 		for k,v in request_headers.iteritems():
