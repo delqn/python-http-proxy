@@ -2,18 +2,44 @@
 
 import argparse
 import logging
-from proxy import Proxy
+import os
+import signal
 import sys
 import time
-from daemon import Daemon
 
-FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
-logging.basicConfig(format=FORMAT, filename='./log', level=logging.INFO)
+from daemon import Daemon
+from proxy import Proxy
+
+FORMAT = '%(asctime)-15s %(message)s'
+logging.basicConfig(format=FORMAT, filename='./log', level=logging.DEBUG)
 logger = logging.getLogger('python-http-proxy')
 
-p = Proxy
+def signal_handler1(signal, frame):
+	print("Bye!")
+	sys.exit(0)
+
+SIGTERM_SENT = False
+
+# TODO: why does this work so much better than the prev version?
+def sigterm_handler(signum, frame):
+	logger.error('SIGTERM handler!  Shutting Down...')
+	print >>sys.stderr, "SIGTERM handler.  Shutting Down."
+
+	global SIGTERM_SENT
+	if not SIGTERM_SENT:
+		SIGTERM_SENT = True
+		logger.error('Sending TERM...')
+		print >>sys.stderr, "Sending TERM..."
+		os.killpg(0, signal.SIGTERM)
+
+	sys.exit()
+
+signal.signal(signal.SIGINT, sigterm_handler)
+
+p = Proxy(logger)
 p.start()
 
+sys.exit()
 class MyDaemon(Daemon):
         def run(self):
                 while True:
