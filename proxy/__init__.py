@@ -72,7 +72,7 @@ class Responder(threading.Thread):
 
 		server_headers = {}
 		server_response = ''
-		timeout = 1 #seconds
+		timeout = 0.5 #seconds
 
 		try:
 			U = opener.open(fetch_request)
@@ -88,12 +88,12 @@ class Responder(threading.Thread):
 					self.logger.debug('Response[len=%s](server->proxy): %s...', resp_length, server_response[lenlimit])
 			self.logger.debug('Headers(server->proxy): \n\t%s', '\n\t'.join([ '%s: %s'%(k,v) for k,v in server_headers.items() ]) )
 
-
-
+		except httplib.BadStatusLine, e:
+			self.logger.error("[Error] Request(proxy<->server): Bad status line: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
 		except urllib2.HTTPError, e:
-			self.logger.error("[Error] Fetching url: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
+			self.logger.error("[Error] Request(proxy<->server): Fetching url: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
 		except urllib2.URLError, e:
-			self.logger.error("[Error] Timedout fetching url(%s): %s\nIs the timout of %s too agressive?" % (url, e, timeout))
+			self.logger.error("[Error] Request(proxy<->server): Timeout fetching url(%s): %s\nIs the timout of %s too agressive?" % (url, e, timeout))
 		return (server_headers, server_response)
 
 	def parse_all_headers(self, lines):
@@ -182,9 +182,14 @@ class Proxy:
 		'''Build a tree of banned things'''
 		### MAJOR TODO HERE
 		banned = []
-		f = open('easylist.txt')
-		#Skip the first line
-		f.readline()
+		file_name = 'easylist.txt'
+		try:
+			f = open(file_name)
+			#Skip the first line
+			f.readline()
+		except IOError, e:
+			self.logger.error('Could not load %s', file_name)
+			f = []
 		return [ line.strip() for line in f if
 			line.startswith('/')
 			and line.startswith('||') ]

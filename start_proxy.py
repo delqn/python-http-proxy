@@ -10,15 +10,9 @@ import time
 from daemon import Daemon
 from proxy import Proxy
 
-FORMAT = '%(asctime)-15s %(message)s'
-logging.basicConfig(format=FORMAT, filename='./log', level=logging.DEBUG)
-logger = logging.getLogger('python-http-proxy')
-
 def signal_handler1(signal, frame):
 	print("Bye!")
 	sys.exit(0)
-
-SIGTERM_SENT = False
 
 # TODO: why does this work so much better than the prev version?
 def sigterm_handler(signum, frame):
@@ -34,18 +28,18 @@ def sigterm_handler(signum, frame):
 
 	sys.exit()
 
-signal.signal(signal.SIGINT, sigterm_handler)
-
-p = Proxy(logger)
-p.start()
-
-sys.exit()
 class MyDaemon(Daemon):
         def run(self):
-                while True:
-                        time.sleep(1)
+		p = Proxy(logger)
+		p.start()
  
 if __name__ == "__main__":
+	FORMAT = '%(asctime)-15s %(message)s'
+	logging.basicConfig(format=FORMAT, filename='./log', level=logging.ERROR)
+        logger = logging.getLogger('python-http-proxy')
+        SIGTERM_SENT = False
+        signal.signal(signal.SIGINT, sigterm_handler)
+
         parser = argparse.ArgumentParser(description='Command for the daemon')
         parser.add_argument('command', metavar='C', type=str, nargs=1, help='A string command for the daemon: start|stop|restart')
         args = parser.parse_args()
