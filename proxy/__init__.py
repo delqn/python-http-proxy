@@ -1,5 +1,6 @@
 #!/usr/bin/env python2
 
+import httplib
 import logging
 import re
 import socket
