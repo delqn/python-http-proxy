@@ -13,6 +13,8 @@ from cookielib import CookieJar
 
 LINE_TERMINATOR = '\r\n'
 BUFFER_SIZE = 1024
+BANNED_ADS = []
+
 
 class Responder(threading.Thread):
 	def __init__(self, conn, addr, logger):
@@ -39,12 +41,10 @@ class Responder(threading.Thread):
 	def check_url(self, url):
 		'''Is the url to be loaded banned'''
 		# TODO
-		return True
-		'''
-		for ad in ads:
+		for ad in BANNED_ADS:
 			if ad in url:
 				return False
-		'''
+		return True
 
 	def do_request(self, url, request_headers, verb):
 		if not self.check_url(url):
@@ -130,7 +130,7 @@ class Responder(threading.Thread):
 			user_headers = self.parse_all_headers(lines)
 			r['headers'], r['payload'], r['status'] = self.do_request(url, user_headers, verb=verb)
 		except ValueError, e:
-			self.logger.error('[Error] Problem with the request: %s', e)
+			self.logger.error('[Error] Problem with the request: %s --> line[0]: %s', e, lines[0])
 		self.respond(**r)
 
 class Proxy:
@@ -138,7 +138,7 @@ class Proxy:
 		self.logger = logger
 		self.HOST = ''  # Symbolic name meaning all available interfaces
 		self.PORT = 8080# Arbitrary non-privileged port
-		self.ads = self.load_banned()
+		BANNED_ADS = self.load_banned()
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
 		self.s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -155,8 +155,9 @@ class Proxy:
 	def load_banned(self):
 		'''Build a tree of banned things'''
 		### MAJOR TODO HERE
+		return []
 		banned = []
-		file_name = 'easylist.txt'
+		file_name = '/tmp/easylist.txt'
 		try:
 			f = open(file_name)
 			#Skip the first line
@@ -164,9 +165,7 @@ class Proxy:
 		except IOError, e:
 			self.logger.error('Could not load %s', file_name)
 			f = []
-		return [ line.strip() for line in f if
-			line.startswith('/')
-			and line.startswith('||') ]
+		return [ line.strip() for line in f if not line.startswith('!') ]
 
 	def start(self):
 		self.s.listen(1)
