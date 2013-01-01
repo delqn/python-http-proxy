@@ -44,7 +44,7 @@ class TestResponder(unittest.TestCase):
 	payload = 'This is the HTML'
 	status = '200 OK'
 	self.r.respond(headers, payload, status)
-	expected = 'HTTP/1.1 200 OK\r\nkey: value\r\nThis is the HTML'
+	expected = 'HTTP/1.1 200 OK\r\nkey: value\r\n\r\nThis is the HTML'
 	self.assertEqual(self.conn.string_to_be_sent, expected)
 	self.assertTrue(self.conn.close_was_called)
 	def exc(self):

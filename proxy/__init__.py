@@ -30,7 +30,7 @@ class Responder(threading.Thread):
 			'payload': payload,
 		}
 		try:
-			self.conn.sendall('%(http_ver)s %(status)s\r\n%(headers)s\r\n%(payload)s' % r)
+			self.conn.sendall('%(http_ver)s %(status)s\r\n%(headers)s\r\n\r\n%(payload)s' % r)
 		except Exception, e:# as (errno, strerror):
 			self.logger.error('[Error] Could not send data to user! %s' % e)
 		#self.conn.shutdown(socket.SHUT_RDWR)
@@ -100,12 +100,12 @@ class Responder(threading.Thread):
 
 	def wait_for_entire_user_request(self):
 		buff = ''
-		done = False
-		lines = []
-		while not done:
+		while 1:
 			data = self.conn.recv(BUFFER_SIZE)
 			if not data: break
 			buff += data.decode("utf-8")
+			if LINE_TERMINATOR*2 in buff:
+				break
 		return buff.split(LINE_TERMINATOR)
 
 	def url_validator(self, url):
@@ -115,7 +115,9 @@ class Responder(threading.Thread):
 		return url
 
 	def run(self):
-		r = { 'headers': {}, 'response': 'The user request is jacked up FLOBW', 'status': '499 Bad Request' }
+		r = {	'headers': {}, 
+			'payload': 'The user request is jacked up FLOBW',
+			'status': '499 Bad Request' }
 		lines = self.wait_for_entire_user_request()
 		if not lines:
 			self.logger.error('Blank headers')
@@ -123,10 +125,10 @@ class Responder(threading.Thread):
 			return
 		try:
 			verb, url, protocol = lines[0].split(' ')
-			url = url_validator(url)
+			url = self.url_validator(url)
 			self.logger.info('Request: %s', url)
 			user_headers = self.parse_all_headers(lines)
-			r.headers, r.payload, r.status = self.do_request(url, user_headers, verb=verb)
+			r['headers'], r['payload'], r['status'] = self.do_request(url, user_headers, verb=verb)
 		except ValueError, e:
 			self.logger.error('[Error] Problem with the request: %s', e)
 		self.respond(**r)
