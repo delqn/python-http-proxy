@@ -11,10 +11,11 @@ import urllib
 
 from cookielib import CookieJar
 
+LINE_TERMINATOR = '\r\n'
+BUFFER_SIZE = 1024
+
 class Responder(threading.Thread):
 	def __init__(self, conn, addr, logger):
-		self.BUFFER_SIZE = 1024
-		self.LINE_TERMINATOR = '\r\n'
 		self.conn = conn
 		self.addr = addr
 		self.logger = logger
@@ -22,20 +23,15 @@ class Responder(threading.Thread):
 
 	def respond(self, headers, payload, status):
 		'''send a response to the server and terminate'''
-		if isinstance(headers, dict):
-			str_headers = '\r\n'.join([ "%s: %s" % (k,v) for k,v in headers.items() if k and v ])
-		else:
-			str_headers = ''
 		r = {
 			'http_ver': 'HTTP/1.1',
 			'status': status,
-			'headers': str_headers + '\r\n',
+			'headers': '\r\n'.join([ "%s: %s" % (k,v) for k,v in headers.items() ]),
 			'payload': payload,
 		}
 		try:
-			send_this = '%(http_ver)s %(status)s\r\n%(headers)s\r\n%(payload)s' % r
-			self.conn.sendall( send_this )
-		except Exception, e:
+			self.conn.sendall('%(http_ver)s %(status)s\r\n%(headers)s\r\n\r\n%(payload)s' % r)
+		except Exception, e:# as (errno, strerror):
 			self.logger.error('[Error] Could not send data to user! %s' % e)
 		#self.conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
@@ -51,10 +47,8 @@ class Responder(threading.Thread):
 		'''
 
 	def do_request(self, url, request_headers, verb):
-		headers = {}
-		status = '200 OK'
 		if not self.check_url(url):
-			return ('HTTP/1.1 499 Banned URL\r\n\r\n','')
+			return ({},'banned URL','499 Banned URL')
 		query_args = { 'q':'query string', 'foo':'bar' }
 		encoded_data = urllib.urlencode(query_args)
 
@@ -74,25 +68,22 @@ class Responder(threading.Thread):
 
 		server_headers = {}
 		server_response = ''
-		timeout = 1 #seconds
+		status = '200 OK'
+		timeout = 0.5 #seconds
 
 		try:
-			U = opener.open(fetch_request)
-			server_response = U.read()
-			server_headers = dict([ (k,v) for k,v in U.headers.items() ])
-
-			#if 'content-type' in headers.keys()
-			if 'content-type' in server_headers:
-				if server_headers['content-type'].startswith('text'):
-					resp_length = len(server_response)
-					if resp_length > 10: lenlimit = 10
-					else: lenlimit = resp_length-1
-					self.logger.debug('Response[len=%s](server->proxy): %s...', resp_length, server_response[lenlimit])
-			self.logger.debug('Headers(server->proxy): \n\t%s', '\n\t'.join([ '%s: %s'%(k,v) for k,v in server_headers.items() ]) )
+			gotit = opener.open(fetch_request)
+			server_response = gotit.read()
+			server_headers = dict([ (k,v) for k,v in gotit.headers.items() ])
+		except urllib2.HTTPError, e:
+			txt = "[Error] Request(proxy<->server): HTTPError: %s\n URL:%s\nVERB: %s\nUSER_HEADERS:%s\n\n SERVER_HEADERS:%s\n CONTENT:%s"
+			self.logger.error(txt % (e, url, verb, request_headers,server_headers,server_response))
 		except httplib.BadStatusLine, e:
-			self.logger.error("[Error] Request(proxy<->server): Bad status line: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
+			txt = "[Error] Request(proxy<->server): Bad status line: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s"
+			self.logger.error(txt % (e, url, verb, request_headers,server_headers,server_response))
 		except urllib2.URLError, e:
-			self.logger.error("[Error] Request(proxy<->server): Timeout fetching url(%s): %s\nIs the timout of %s too agressive?" % (url, e, timeout))
+			txt = "[Error] Request(proxy<->server): Timeout fetching url(%s): %s\nIs the timout of %s too agressive?"
+			self.logger.error(txt % (url, e, timeout))
 		return (server_headers, server_response, status)
 
 	def parse_all_headers(self, lines):
@@ -107,56 +98,40 @@ class Responder(threading.Thread):
 			headers[ key ] = value
 		return headers
 
-	def run(self):
-		counter = 0
+	def wait_for_entire_user_request(self):
 		buff = ''
-		lines = []
-		done = False
-		while not done:
-			data = self.conn.recv(self.BUFFER_SIZE)
-			if not data: return ##TODO
+		while 1:
+			data = self.conn.recv(BUFFER_SIZE)
+			if not data: break
 			buff += data.decode("utf-8")
-			if self.LINE_TERMINATOR in buff:
-				#get all the lines
-				while not done:
-					split_buff = buff.split(self.LINE_TERMINATOR, 1)
-					line = split_buff[0]
-					if len(split_buff) > 1:
-						buff = split_buff[1]
-					lines.append(line.strip())
-					done = (buff == self.LINE_TERMINATOR or not buff)
+			if LINE_TERMINATOR*2 in buff:
+				break
+		return buff.split(LINE_TERMINATOR)
 
+	def url_validator(self, url):
+		if not re.match(r'^(http|https)://', url):
+			new_url = "http://" + url
+			url = new_url
+		return url
+
+	def run(self):
+		r = {	'headers': {}, 
+			'payload': 'The user request is jacked up FLOBW',
+			'status': '499 Bad Request' }
+		lines = self.wait_for_entire_user_request()
 		if not lines:
-			r = {
-				'headers': {},
-				'response': "Something's not quite right!",
-				'status': "500 Bad Request"
-			}
+			self.logger.error('Blank headers')
 			self.respond(**r)
 			return
 		try:
 			verb, url, protocol = lines[0].split(' ')
-
-			if not re.match(r'^(http|https)://', url):
-				new_url = "http://" + url
-				url = new_url
-
+			url = self.url_validator(url)
 			self.logger.info('Request: %s', url)
-			h, r, status = self.do_request(url, self.parse_all_headers(lines), verb=verb)
-			response_to_user = {
-				'headers': h,
-				'payload': r,
-				'status': status,
-			}
-			self.respond(**response_to_user)
-		except ValueError:# as (errno, strerror):
-			r = {
-				'headers': {},
-				'payload': 'Your request is jacked up!',
-				'status': '400 Bad Request'
-			}
-			self.respond(**r)
-		return
+			user_headers = self.parse_all_headers(lines)
+			r['headers'], r['payload'], r['status'] = self.do_request(url, user_headers, verb=verb)
+		except ValueError, e:
+			self.logger.error('[Error] Problem with the request: %s', e)
+		self.respond(**r)
 
 class Proxy:
 	def __init__(self, logger):

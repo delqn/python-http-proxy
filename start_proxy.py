@@ -40,15 +40,15 @@ if __name__ == "__main__":
         SIGTERM_SENT = False
         signal.signal(signal.SIGINT, sigterm_handler)
 
+	#p = Proxy(logger); p.start(); sys.exit()
+
         parser = argparse.ArgumentParser(description='Command for the daemon')
         parser.add_argument('command', metavar='C', type=str, nargs=1, help='A string command for the daemon: start|stop|restart')
         args = parser.parse_args()
 
-        command = args.command[0]
-
-	#proxy.start_server()
         daemon = MyDaemon('/tmp/python-http-proxy.pid', logger)
 
+        command = args.command[0]
         if command == 'start':
                 daemon.start()
         elif command == 'stop':

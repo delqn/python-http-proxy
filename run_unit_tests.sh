@@ -3,6 +3,6 @@
 pushd tests
 for x in $(ls test*.py)
 do
-	python $x
+	python2 $x
 done
 popd
