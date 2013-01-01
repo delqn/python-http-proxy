@@ -52,6 +52,7 @@ class Responder(threading.Thread):
 
 	def do_request(self, url, request_headers, verb):
 		headers = {}
+		status = '200 OK'
 		if not self.check_url(url):
 			return ('HTTP/1.1 499 Banned URL\r\n\r\n','')
 		query_args = { 'q':'query string', 'foo':'bar' }
@@ -88,14 +89,16 @@ class Responder(threading.Thread):
 					else: lenlimit = resp_length-1
 					self.logger.debug('Response[len=%s](server->proxy): %s...', resp_length, server_response[lenlimit])
 			self.logger.debug('Headers(server->proxy): \n\t%s', '\n\t'.join([ '%s: %s'%(k,v) for k,v in server_headers.items() ]) )
-
+		except urllib2.HTTPError, e:
+			self.logger.error("[Error] Request(proxy<->server): HTTPError: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
+			server_headers = {}
+			server_response = ''
+			status = '304 Not Modified'
 		except httplib.BadStatusLine, e:
 			self.logger.error("[Error] Request(proxy<->server): Bad status line: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
-		except urllib2.HTTPError, e:
-			self.logger.error("[Error] Request(proxy<->server): Fetching url: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
 		except urllib2.URLError, e:
 			self.logger.error("[Error] Request(proxy<->server): Timeout fetching url(%s): %s\nIs the timout of %s too agressive?" % (url, e, timeout))
-		return (server_headers, server_response)
+		return (server_headers, server_response, status)
 
 	def parse_all_headers(self, lines):
 		headers = {}
@@ -144,11 +147,11 @@ class Responder(threading.Thread):
 				url = new_url
 
 			self.logger.info('Request: %s', url)
-			h, r = self.do_request(url, self.parse_all_headers(lines), verb=verb)
+			h, r, status = self.do_request(url, self.parse_all_headers(lines), verb=verb)
 			response_to_user = {
 				'headers': h,
 				'payload': r,
-				'status': '200 OK'
+				'status': status,
 			}
 			self.respond(**response_to_user)
 		except ValueError:# as (errno, strerror):
