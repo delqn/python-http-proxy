@@ -35,7 +35,7 @@ class MyDaemon(Daemon):
  
 if __name__ == "__main__":
 	FORMAT = '%(asctime)-15s %(message)s'
-	logging.basicConfig(format=FORMAT, filename='./log', level=logging.ERROR)
+	logging.basicConfig(format=FORMAT, filename='/tmp/python-http-proxy.log', level=logging.ERROR)
         logger = logging.getLogger('python-http-proxy')
         SIGTERM_SENT = False
         signal.signal(signal.SIGINT, sigterm_handler)
