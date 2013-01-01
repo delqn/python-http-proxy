@@ -164,7 +164,7 @@ class Proxy:
 	def __init__(self, logger):
 		self.logger = logger
 		self.HOST = ''  # Symbolic name meaning all available interfaces
-		self.PORT = 65500 # Arbitrary non-privileged port
+		self.PORT = 8080# Arbitrary non-privileged port
 		self.ads = self.load_banned()
 		self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.s.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, True)
