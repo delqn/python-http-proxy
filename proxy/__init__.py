@@ -11,10 +11,11 @@ import urllib
 
 from cookielib import CookieJar
 
+LINE_TERMINATOR = '\r\n'
+BUFFER_SIZE = 1024
+
 class Responder(threading.Thread):
 	def __init__(self, conn, addr, logger):
-		self.BUFFER_SIZE = 1024
-		self.LINE_TERMINATOR = '\r\n'
 		self.conn = conn
 		self.addr = addr
 		self.logger = logger
@@ -22,21 +23,16 @@ class Responder(threading.Thread):
 
 	def respond(self, headers, payload, status):
 		'''send a response to the server and terminate'''
-		if isinstance(headers, dict):
-			str_headers = '\r\n'.join([ "%s: %s" % (k,v) for k,v in headers.items() ])
-		else:
-			str_headers = ''
 		r = {
 			'http_ver': 'HTTP/1.1',
 			'status': status,
-			'headers': str_headers + '\r\n',
+			'headers': '\r\n'.join([ "%s: %s" % (k,v) for k,v in headers.items() ]),
 			'payload': payload,
 		}
 		try:
 			self.conn.sendall('%(http_ver)s %(status)s\r\n%(headers)s\r\n%(payload)s' % r)
 		except Exception, e:# as (errno, strerror):
 			self.logger.error('[Error] Could not send data to user! %s' % e)
-			print "Could not send data to user: %s" % e
 		#self.conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
 
@@ -118,18 +114,18 @@ class Responder(threading.Thread):
 		lines = []
 		done = False
 		while not done:
-			data = self.conn.recv(self.BUFFER_SIZE)
+			data = self.conn.recv(BUFFER_SIZE)
 			if not data: return ##TODO
 			buff += data.decode("utf-8")
-			if self.LINE_TERMINATOR in buff:
+			if LINE_TERMINATOR in buff:
 				#get all the lines
 				while not done:
-					split_buff = buff.split(self.LINE_TERMINATOR, 1)
+					split_buff = buff.split(LINE_TERMINATOR, 1)
 					line = split_buff[0]
 					if len(split_buff) > 1:
 						buff = split_buff[1]
 					lines.append(line.strip())
-					done = (buff == self.LINE_TERMINATOR or not buff)
+					done = (buff == LINE_TERMINATOR or not buff)
 
 		if not lines:
 			r = {
