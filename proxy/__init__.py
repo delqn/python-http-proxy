@@ -23,7 +23,7 @@ class Responder(threading.Thread):
 	def respond(self, headers, payload, status):
 		'''send a response to the server and terminate'''
 		if isinstance(headers, dict):
-			str_headers = '\r\n'.join([ "%s: %s" % (k,v) for k,v in headers.items() ])
+			str_headers = '\r\n'.join([ "%s: %s" % (k,v) for k,v in headers.items() if k and v ])
 		else:
 			str_headers = ''
 		r = {
@@ -33,10 +33,10 @@ class Responder(threading.Thread):
 			'payload': payload,
 		}
 		try:
-			self.conn.sendall('%(http_ver)s %(status)s\r\n%(headers)s\r\n%(payload)s' % r)
-		except Exception, e:# as (errno, strerror):
+			send_this = '%(http_ver)s %(status)s\r\n%(headers)s\r\n%(payload)s' % r
+			self.conn.sendall( send_this )
+		except Exception, e:
 			self.logger.error('[Error] Could not send data to user! %s' % e)
-			print "Could not send data to user: %s" % e
 		#self.conn.shutdown(socket.SHUT_RDWR)
 		self.conn.close()
 
@@ -74,7 +74,7 @@ class Responder(threading.Thread):
 
 		server_headers = {}
 		server_response = ''
-		timeout = 0.5 #seconds
+		timeout = 1 #seconds
 
 		try:
 			U = opener.open(fetch_request)
@@ -89,11 +89,6 @@ class Responder(threading.Thread):
 					else: lenlimit = resp_length-1
 					self.logger.debug('Response[len=%s](server->proxy): %s...', resp_length, server_response[lenlimit])
 			self.logger.debug('Headers(server->proxy): \n\t%s', '\n\t'.join([ '%s: %s'%(k,v) for k,v in server_headers.items() ]) )
-		except urllib2.HTTPError, e:
-			self.logger.error("[Error] Request(proxy<->server): HTTPError: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
-			server_headers = {}
-			server_response = ''
-			status = '304 Not Modified'
 		except httplib.BadStatusLine, e:
 			self.logger.error("[Error] Request(proxy<->server): Bad status line: %s\nURL:%s\nVERB: %s\nUSER_HEADERS:%s\n\nSERVER_HEADERS:%s\nCONTENT:%s" % (e, url, verb, request_headers,server_headers,server_response))
 		except urllib2.URLError, e:
